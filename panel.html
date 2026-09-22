@@ -90,6 +90,15 @@
   .toggle{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
   .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
   .req{color:var(--rojo)}
+  .cfg-sec{margin-bottom:22px}
+  .cfg-sec h3{font-size:14px;font-weight:600;margin-bottom:10px}
+  .cfg-item{display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .cfg-logo{width:46px;height:30px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:#fff;flex-shrink:0}
+  .cfg-logo.ph{display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);text-align:center;line-height:1.1}
+  .cfg-nombre{flex:1;font-size:14px}
+  .cfg-item input[type=file]{font-size:12px;max-width:200px}
+  .cfg-add{display:flex;gap:8px;margin-top:12px}
+  .cfg-add input{flex:1}
 </style>
 </head>
 <body>
@@ -110,7 +119,7 @@
 <div id="app">
   <div class="topbar">
     <div class="t">Panel de financiaciones</div>
-    <div class="r"><span class="who" id="who"></span><button class="btn ghost" id="btn-logout">Salir</button></div>
+    <div class="r"><span class="who" id="who"></span><button class="btn ghost" id="btn-config">Configuración</button><button class="btn ghost" id="btn-logout">Salir</button></div>
   </div>
   <div class="wrap">
     <div class="toolbar">
@@ -223,6 +232,21 @@
       <button class="btn ghost" id="btn-cancel">Cancelar</button>
       <button class="btn" id="btn-guardar">Guardar promoción</button>
     </div>
+  </div>
+</div>
+
+<!-- ===== Modal configuración ===== -->
+<div class="overlay" id="overlay-cfg">
+  <div class="modal">
+    <h2>Configuración</h2>
+    <div class="sub">Gestioná bancos, tarjetas y vías, y subiles el logo para que aparezcan en el QR.</div>
+    <div class="cfg-sec"><h3>Bancos</h3><div id="cfg-bancos"></div>
+      <div class="cfg-add"><input type="text" id="add-banco" placeholder="Nuevo banco…"><button class="btn" data-add="bancos">Agregar</button></div></div>
+    <div class="cfg-sec"><h3>Tarjetas</h3><div id="cfg-tarjetas"></div>
+      <div class="cfg-add"><input type="text" id="add-tarjeta" placeholder="Nueva tarjeta…"><button class="btn" data-add="tarjetas">Agregar</button></div></div>
+    <div class="cfg-sec"><h3>Vías</h3><div id="cfg-vias"></div>
+      <div class="cfg-add"><input type="text" id="add-via" placeholder="Nueva vía…"><button class="btn" data-add="vias">Agregar</button></div></div>
+    <div class="modal-actions"><button class="btn ghost" id="btn-cfg-cerrar">Cerrar</button></div>
   </div>
 </div>
 
@@ -462,6 +486,53 @@
   }
   $('buscar').addEventListener('input', pintar);
   $('filtro-estado').addEventListener('change', pintar);
+
+  // ---------- Configuración (catálogos + logos) ----------
+  const BUCKET = 'logos-bancos';
+  const CAT = { bancos:'cfg-bancos', tarjetas:'cfg-tarjetas', vias:'cfg-vias' };
+  function itemsDe(tabla){ return tabla==='bancos'?BANCOS : tabla==='tarjetas'?TARJETAS : VIAS; }
+
+  $('btn-config').onclick = () => { renderConfig(); $('overlay-cfg').classList.add('show'); };
+  $('btn-cfg-cerrar').onclick = () => $('overlay-cfg').classList.remove('show');
+
+  function renderConfig(){
+    for(const tabla of Object.keys(CAT)){
+      const cont = $(CAT[tabla]);
+      cont.innerHTML = itemsDe(tabla).map(it => {
+        const logo = it.logo_url
+          ? '<img class="cfg-logo" src="'+it.logo_url+'" alt="">'
+          : '<div class="cfg-logo ph">sin logo</div>';
+        return '<div class="cfg-item">'+logo+'<span class="cfg-nombre">'+it.nombre+'</span>'+
+          '<input type="file" accept="image/*" data-tabla="'+tabla+'" data-id="'+it.id+'"></div>';
+      }).join('') || '<div style="font-size:13px;color:var(--muted);padding:6px 0">Todavía no hay.</div>';
+    }
+    document.querySelectorAll('#overlay-cfg input[type=file]').forEach(inp=>{
+      inp.onchange = () => { if(inp.files[0]) subirLogo(inp.dataset.tabla, inp.dataset.id, inp.files[0]); };
+    });
+  }
+
+  document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => agregarItem(b.dataset.add));
+  async function agregarItem(tabla){
+    const map = {bancos:'add-banco', tarjetas:'add-tarjeta', vias:'add-via'};
+    const inp = $(map[tabla]); const nombre = inp.value.trim();
+    if(!nombre) return;
+    const { error } = await db.from(tabla).insert({ nombre });
+    if(error){ alert('No se pudo agregar: '+error.message); return; }
+    inp.value='';
+    await cargarCatalogos(); renderConfig();
+  }
+
+  async function subirLogo(tabla, id, file){
+    const ext = (file.name.split('.').pop()||'png').toLowerCase();
+    const path = tabla+'/'+id+'.'+ext;
+    const up = await db.storage.from(BUCKET).upload(path, file, { upsert:true, cacheControl:'3600' });
+    if(up.error){ alert('No se pudo subir el logo: '+up.error.message); return; }
+    const { data } = db.storage.from(BUCKET).getPublicUrl(path);
+    const url = data.publicUrl + '?v=' + Date.now();
+    const { error } = await db.from(tabla).update({ logo_url:url }).eq('id', id);
+    if(error){ alert('Se subió pero no se pudo guardar: '+error.message); return; }
+    await cargarCatalogos(); renderConfig();
+  }
 
   chequearSesion();
 </script>

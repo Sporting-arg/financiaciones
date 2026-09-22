@@ -39,9 +39,12 @@
   .hero+.hero{margin-top:8px}
   .hero .n{font-family:var(--display);font-size:52px;line-height:.9;font-weight:400;color:var(--ink);letter-spacing:.01em}
   .hero .unit{font-family:var(--display);font-size:18px;line-height:1;color:var(--ink);text-transform:uppercase}
-  .banco-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .banco-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px}
   .banco{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.01em}
-  .tarjetas{font-size:12.5px;color:var(--muted);font-weight:500}
+  .banco-logo{height:22px;width:auto}
+  .tarjetas{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);font-weight:500}
+  .tarj-logo{height:16px;width:auto}
+  .tarj-txt{font-size:12.5px;color:var(--muted);font-weight:500}
   .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
   .tag{font-size:11px;font-weight:600;color:var(--ink);background:#F2F2F2;border-radius:6px;padding:4px 9px;text-transform:uppercase;letter-spacing:.02em}
   .cond{font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.5}
@@ -164,11 +167,17 @@
     return true;
   }
 
-  function tarjetasTexto(promo){
-    const t = (promo.promocion_tarjetas||[]).map(x => x.tarjetas?.nombre).filter(Boolean);
-    let base = t.join(' · ');
-    if(promo.via?.nombre && promo.via.nombre !== 'Directo') base += ' vía ' + promo.via.nombre;
-    return base || '—';
+  function bancoLogo(promo){
+    return promo.banco?.logo_url ? '<img class="banco-logo" src="'+promo.banco.logo_url+'" alt="">' : '';
+  }
+  function tarjetasHTML(promo){
+    const arr = (promo.promocion_tarjetas||[]).map(x=>x.tarjetas).filter(Boolean);
+    const conLogo = arr.filter(t=>t.logo_url), sinLogo = arr.filter(t=>!t.logo_url);
+    let html = conLogo.map(t=>'<img class="tarj-logo" src="'+t.logo_url+'" alt="'+t.nombre+'">').join('');
+    const textos = sinLogo.map(t=>t.nombre);
+    if(promo.via?.nombre && promo.via.nombre!=='Directo') textos.push('vía '+promo.via.nombre);
+    if(textos.length) html += '<span class="tarj-txt">'+textos.join(' · ')+'</span>';
+    return html ? '<span class="tarjetas">'+html+'</span>' : '';
   }
 
   function cardHTML(promo){
@@ -195,8 +204,8 @@
     return '<div class="card" data-tipo="'+promo.tipo+'">' +
       '<div class="tipo">'+tipoTxt+'</div>' +
       hero +
-      '<div class="banco-row"><span class="banco">'+(promo.banco?.nombre||'')+'</span>' +
-        '<span class="tarjetas">'+tarjetasTexto(promo)+'</span></div>' +
+      '<div class="banco-row">'+bancoLogo(promo)+'<span class="banco">'+(promo.banco?.nombre||'')+'</span>' +
+        tarjetasHTML(promo)+'</div>' +
       (tags.length ? '<div class="tags">'+tags.map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>' : '') +
       (promo.condiciones ? '<div class="cond">'+promo.condiciones+'</div>' : '') +
     '</div>';
@@ -237,7 +246,7 @@
     pintarHeader(s);
 
     const { data: promos, error: e2 } = await db.from('promociones')
-      .select('*, banco:bancos(nombre), via:vias(nombre), promocion_tarjetas(tarjetas(nombre)), promocion_reglas(*)')
+      .select('*, banco:bancos(nombre,logo_url), via:vias(nombre), promocion_tarjetas(tarjetas(nombre,logo_url)), promocion_reglas(*)')
       .eq('estado','activa').eq('tipo_registro','promo').eq('archivada', false);
     if(e2){ estado('Error al traer promociones', e2.message); return; }
 
