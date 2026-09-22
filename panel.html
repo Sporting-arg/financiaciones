@@ -99,6 +99,7 @@
   .cfg-item input[type=file]{font-size:12px;max-width:200px}
   .cfg-add{display:flex;gap:8px;margin-top:12px}
   .cfg-add input{flex:1}
+  .cfg-file{font-size:11px;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:5px;font-family:ui-monospace,monospace}
 </style>
 </head>
 <body>
@@ -487,10 +488,11 @@
   $('buscar').addEventListener('input', pintar);
   $('filtro-estado').addEventListener('change', pintar);
 
-  // ---------- Configuración (catálogos + logos) ----------
-  const BUCKET = 'logos-bancos';
+  // ---------- Configuración (catálogos + logos por convención) ----------
   const CAT = { bancos:'cfg-bancos', tarjetas:'cfg-tarjetas', vias:'cfg-vias' };
   function itemsDe(tabla){ return tabla==='bancos'?BANCOS : tabla==='tarjetas'?TARJETAS : VIAS; }
+  function slug(t){ return (t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,'-'); }
+  window.logoPhErr = img => { img.outerHTML = '<div class="cfg-logo ph">sin logo</div>'; };
 
   $('btn-config').onclick = () => { renderConfig(); $('overlay-cfg').classList.add('show'); };
   $('btn-cfg-cerrar').onclick = () => $('overlay-cfg').classList.remove('show');
@@ -499,16 +501,13 @@
     for(const tabla of Object.keys(CAT)){
       const cont = $(CAT[tabla]);
       cont.innerHTML = itemsDe(tabla).map(it => {
-        const logo = it.logo_url
-          ? '<img class="cfg-logo" src="'+it.logo_url+'" alt="">'
-          : '<div class="cfg-logo ph">sin logo</div>';
-        return '<div class="cfg-item">'+logo+'<span class="cfg-nombre">'+it.nombre+'</span>'+
-          '<input type="file" accept="image/*" data-tabla="'+tabla+'" data-id="'+it.id+'"></div>';
+        const file = 'logos-bancos/'+slug(it.nombre)+'.png';
+        return '<div class="cfg-item">'+
+          '<img class="cfg-logo" src="'+file+'" alt="" onerror="logoPhErr(this)">'+
+          '<span class="cfg-nombre">'+it.nombre+'</span>'+
+          '<code class="cfg-file">'+file+'</code></div>';
       }).join('') || '<div style="font-size:13px;color:var(--muted);padding:6px 0">Todavía no hay.</div>';
     }
-    document.querySelectorAll('#overlay-cfg input[type=file]').forEach(inp=>{
-      inp.onchange = () => { if(inp.files[0]) subirLogo(inp.dataset.tabla, inp.dataset.id, inp.files[0]); };
-    });
   }
 
   document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => agregarItem(b.dataset.add));
@@ -519,18 +518,6 @@
     const { error } = await db.from(tabla).insert({ nombre });
     if(error){ alert('No se pudo agregar: '+error.message); return; }
     inp.value='';
-    await cargarCatalogos(); renderConfig();
-  }
-
-  async function subirLogo(tabla, id, file){
-    const ext = (file.name.split('.').pop()||'png').toLowerCase();
-    const path = tabla+'/'+id+'.'+ext;
-    const up = await db.storage.from(BUCKET).upload(path, file, { upsert:true, cacheControl:'3600' });
-    if(up.error){ alert('No se pudo subir el logo: '+up.error.message); return; }
-    const { data } = db.storage.from(BUCKET).getPublicUrl(path);
-    const url = data.publicUrl + '?v=' + Date.now();
-    const { error } = await db.from(tabla).update({ logo_url:url }).eq('id', id);
-    if(error){ alert('Se subió pero no se pudo guardar: '+error.message); return; }
     await cargarCatalogos(); renderConfig();
   }
 

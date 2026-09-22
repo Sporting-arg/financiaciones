@@ -168,15 +168,14 @@
   }
 
   function bancoLogo(promo){
-    return promo.banco?.logo_url ? '<img class="banco-logo" src="'+promo.banco.logo_url+'" alt="">' : '';
+    const n = promo.banco?.nombre; if(!n) return '';
+    return '<img class="banco-logo" src="logos-bancos/'+slug(n)+'.png" alt="" onerror="this.remove()">';
   }
+  function logoErr(img){ const s=document.createElement('span'); s.className='tarj-txt'; s.textContent=img.alt; img.replaceWith(s); }
   function tarjetasHTML(promo){
     const arr = (promo.promocion_tarjetas||[]).map(x=>x.tarjetas).filter(Boolean);
-    const conLogo = arr.filter(t=>t.logo_url), sinLogo = arr.filter(t=>!t.logo_url);
-    let html = conLogo.map(t=>'<img class="tarj-logo" src="'+t.logo_url+'" alt="'+t.nombre+'">').join('');
-    const textos = sinLogo.map(t=>t.nombre);
-    if(promo.via?.nombre && promo.via.nombre!=='Directo') textos.push('vía '+promo.via.nombre);
-    if(textos.length) html += '<span class="tarj-txt">'+textos.join(' · ')+'</span>';
+    let html = arr.map(t=>'<img class="tarj-logo" src="logos-bancos/'+slug(t.nombre)+'.png" alt="'+t.nombre+'" onerror="logoErr(this)">').join('');
+    if(promo.via?.nombre && promo.via.nombre!=='Directo') html += '<span class="tarj-txt">vía '+promo.via.nombre+'</span>';
     return html ? '<span class="tarjetas">'+html+'</span>' : '';
   }
 
