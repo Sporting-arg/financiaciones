@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel de financiaciones</title>
+<style>
+  :root{
+    --bg:#f4f4f5; --card:#fff; --ink:#18181b; --muted:#71717a; --line:#e4e4e7;
+    --accent:#00BB00; --accent-dark:#059212;
+    --azul:#2563eb; --verde:#15803d; --verde-bg:#f0fdf4;
+    --gris-bg:#f4f4f5; --amber:#b45309; --amber-bg:#fffbeb;
+    --rojo:#b91c1c; --rojo-bg:#fef2f2; --violeta:#7c3aed; --violeta-bg:#f5f3ff;
+    --azul-bg:#eff6ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+
+  #login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px;width:100%;max-width:360px}
+  .login-card h1{font-size:19px;font-weight:600;margin-bottom:4px}
+  .login-card p{font-size:13px;color:var(--muted);margin-bottom:22px}
+  label{font-size:13px;font-weight:500;display:block;margin-bottom:5px;margin-top:14px}
+  input,select,textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:0 12px;font-size:14px;font-family:inherit}
+  input,select{height:40px}
+  textarea{padding:10px 12px;min-height:70px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .btn{height:40px;border:none;border-radius:8px;background:var(--accent);color:#0a0a0a;font-size:14px;font-weight:600;cursor:pointer;padding:0 18px;font-family:inherit}
+  .btn:hover{background:var(--accent-dark);color:#fff}
+  .btn.full{width:100%;margin-top:20px}
+  .btn.ghost{background:transparent;color:var(--muted);font-weight:500}
+  .btn.ghost:hover{background:var(--line);color:var(--ink)}
+  .msg{font-size:13px;margin-top:14px;padding:8px 12px;border-radius:8px;display:none}
+  .msg.show{display:block}
+  .msg.err{background:var(--rojo-bg);color:var(--rojo)}
+
+  #app{display:none}
+  .topbar{background:var(--ink);color:#fff;padding:14px 22px;display:flex;align-items:center;justify-content:space-between}
+  .topbar .t{font-size:16px;font-weight:600}
+  .topbar .r{display:flex;align-items:center;gap:14px;font-size:13px}
+  .topbar .r .who{opacity:.7}
+  .wrap{max-width:920px;margin:0 auto;padding:22px}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+  .toolbar input{max-width:260px}
+  .toolbar select{max-width:200px;background:#fff}
+  .toolbar .sp{flex:1}
+
+  .promo{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:16px}
+  .promo .main{flex:1;min-width:0}
+  .promo .nombre{font-size:15px;font-weight:600}
+  .promo .det{font-size:13px;color:var(--muted);margin-top:2px}
+  .promo .val{text-align:right;flex-shrink:0;font-size:14px;font-weight:600}
+  .badges{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+  .badge{font-size:11px;padding:2px 9px;border-radius:20px;font-weight:600}
+  .b-activa{background:var(--verde-bg);color:var(--verde)}
+  .b-pausada{background:var(--amber-bg);color:var(--amber)}
+  .b-borrador{background:var(--azul-bg);color:var(--azul)}
+  .b-vencida{background:var(--rojo-bg);color:var(--rojo)}
+  .b-plantilla{background:var(--violeta-bg);color:var(--violeta)}
+  .b-tipo{background:var(--gris-bg);color:var(--muted)}
+  .promo .actions{display:flex;gap:8px;flex-shrink:0}
+  .mini{height:34px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0 12px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--ink)}
+  .mini:hover{background:var(--bg)}
+  .mini.danger{color:var(--rojo);border-color:#f1c9c9}
+  .mini.danger:hover{background:var(--rojo-bg)}
+  .empty,.loading{text-align:center;padding:50px;color:var(--muted)}
+
+  /* ---- Modal formulario ---- */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;z-index:50}
+  .overlay.show{display:flex}
+  .modal{background:var(--card);border-radius:16px;width:100%;max-width:640px;padding:26px;margin:auto}
+  .modal h2{font-size:18px;font-weight:600;margin-bottom:2px}
+  .modal .sub{font-size:13px;color:var(--muted);margin-bottom:18px}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .field{margin-bottom:14px}
+  .chips{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font-size:13px;padding:7px 13px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;user-select:none}
+  .chip.on{background:var(--accent);color:#0a0a0a;border-color:var(--accent);font-weight:600}
+  .cond-block{display:none;padding:12px;background:var(--bg);border-radius:10px;margin-bottom:14px}
+  .cond-block.show{display:block}
+  .target{background:var(--bg);border-radius:12px;padding:14px;margin-bottom:14px}
+  .target .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .target .head .lbl{font-size:14px;font-weight:600}
+  .impacto{font-size:12px;font-weight:600;padding:3px 11px;border-radius:20px;background:var(--verde-bg);color:var(--verde)}
+  .target .ejes{display:none}
+  .target .ejes.show{display:block}
+  .eje-lbl{font-size:12px;color:var(--muted);margin:10px 0 5px}
+  select[multiple]{height:auto;min-height:80px;padding:6px}
+  .toggle{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+  .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+  .req{color:var(--rojo)}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <div class="login-card">
+    <h1>Panel de financiaciones</h1>
+    <p>Ingresá con tu usuario para gestionar las promociones.</p>
+    <label>Email</label>
+    <input type="email" id="email" autocomplete="username" placeholder="tu@email.com">
+    <label>Contraseña</label>
+    <input type="password" id="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn full" id="btn-login">Entrar</button>
+    <div class="msg err" id="login-msg"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <div class="t">Panel de financiaciones</div>
+    <div class="r"><span class="who" id="who"></span><button class="btn ghost" id="btn-logout">Salir</button></div>
+  </div>
+  <div class="wrap">
+    <div class="toolbar">
+      <input type="text" id="buscar" placeholder="Buscar por nombre o banco…">
+      <select id="filtro-estado">
+        <option value="">Todos los estados</option>
+        <option value="activa">Activas</option>
+        <option value="pausada">Pausadas</option>
+        <option value="borrador">Borradores</option>
+        <option value="vencida">Vencidas</option>
+        <option value="plantilla">Plantillas</option>
+        <option value="archivada">Archivadas (historial)</option>
+      </select>
+      <div class="sp"></div>
+      <button class="btn" id="btn-nueva">+ Nueva promoción</button>
+    </div>
+    <div id="lista"><div class="loading">Cargando promociones…</div></div>
+  </div>
+</div>
+
+<!-- ===== Modal formulario ===== -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>Nueva promoción</h2>
+    <div class="sub">Completá los datos y elegí a qué sucursales aplica.</div>
+
+    <div class="field">
+      <label>Tipo</label>
+      <div class="chips" id="f-tipo">
+        <div class="chip on" data-v="financiacion">Financiación</div>
+        <div class="chip" data-v="reintegro">Reintegro</div>
+        <div class="chip" data-v="ambos">Ambos</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Nombre interno <span class="req">*</span></label>
+      <input type="text" id="f-nombre" placeholder="Ej: Galicia 6 cuotas">
+    </div>
+
+    <div class="row">
+      <div class="field"><label>Banco <span class="req">*</span></label><select id="f-banco"></select></div>
+      <div class="field"><label>Vía</label><select id="f-via"></select></div>
+    </div>
+
+    <div class="field">
+      <label>Tarjetas <span class="req">*</span></label>
+      <div class="chips" id="f-tarjetas"></div>
+    </div>
+
+    <div class="cond-block show" id="block-fin">
+      <div class="row">
+        <div><label>Cuotas</label><input type="number" id="f-cuotas" min="1" placeholder="6"></div>
+        <div><label>Interés</label><select id="f-interes"><option value="sin_interes">Sin interés</option><option value="con_interes">Con interés</option></select></div>
+      </div>
+    </div>
+
+    <div class="cond-block" id="block-rei">
+      <div class="row">
+        <div><label>Reintegro %</label><input type="number" id="f-pct" min="1" max="100" placeholder="25"></div>
+        <div><label>Tope $</label><input type="number" id="f-tope" min="0" placeholder="15000"></div>
+      </div>
+      <div class="field" style="margin-top:12px;margin-bottom:0">
+        <label>Tope por</label>
+        <select id="f-tope-periodo"><option value="transaccion">Transacción</option><option value="mensual">Mensual</option></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Días de la semana</label>
+      <div class="chips" id="f-dias"></div>
+    </div>
+
+    <div class="row">
+      <div class="field"><label>Vigencia desde</label><input type="date" id="f-desde"></div>
+      <div class="field"><label>Vigencia hasta</label><input type="date" id="f-hasta"></div>
+    </div>
+
+    <!-- Targeting -->
+    <div class="target">
+      <div class="head">
+        <span class="lbl">¿A qué sucursales aplica?</span>
+        <span class="impacto" id="f-impacto">0 sucursales</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="f-todas" style="width:auto;height:auto"> Aplica a todas las sucursales</label>
+      <div class="ejes" id="f-ejes">
+        <div class="eje-lbl">Por marca</div>
+        <div class="chips" id="f-marcas"></div>
+        <div class="eje-lbl">Por región</div>
+        <div class="chips" id="f-regiones"></div>
+        <div class="row" style="margin-top:6px">
+          <div><div class="eje-lbl">Por provincia</div><select multiple id="f-provincias"></select></div>
+          <div><div class="eje-lbl">Por shopping</div><select multiple id="f-shoppings"></select></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Estado</label>
+      <select id="f-estado"><option value="borrador">Borrador (no se muestra aún)</option><option value="activa">Activa (visible en el QR)</option></select>
+    </div>
+
+    <div class="field">
+      <label>Condiciones (letra chica)</label>
+      <textarea id="f-cond" placeholder="Ej: No acumulable con otras promociones."></textarea>
+    </div>
+
+    <div class="msg err" id="form-msg"></div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="btn-cancel">Cancelar</button>
+      <button class="btn" id="btn-guardar">Guardar promoción</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://mvbysjlsdgrgiootsvta.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_bhKUTnZ8DziT8IojwqS7HQ_QGpOJ45-';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const $ = id => document.getElementById(id);
+
+  let TODAS = [], BANCOS = [], TARJETAS = [], VIAS = [], SUCURSALES = [];
+  const DIAS = [['1','Lun'],['2','Mar'],['3','Mié'],['4','Jue'],['5','Vie'],['6','Sáb'],['7','Dom']];
+
+  // ---------- Sesión ----------
+  async function chequearSesion(){
+    const { data:{ session } } = await db.auth.getSession();
+    if(session) entrar(session); else mostrarLogin();
+  }
+  function mostrarLogin(){ $('login').style.display='flex'; $('app').style.display='none'; }
+  async function entrar(session){
+    $('login').style.display='none'; $('app').style.display='block';
+    $('who').textContent = session.user.email;
+    await cargarCatalogos();
+    cargarPromos();
+  }
+  $('btn-login').onclick = async () => {
+    const msg=$('login-msg'); msg.classList.remove('show');
+    const { data, error } = await db.auth.signInWithPassword({ email:$('email').value.trim(), password:$('password').value });
+    if(error){ msg.textContent='No pudimos entrar: '+error.message; msg.classList.add('show'); return; }
+    entrar(data.session);
+  };
+  $('password').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
+  $('btn-logout').onclick = async () => { await db.auth.signOut(); mostrarLogin(); };
+
+  // ---------- Catálogos ----------
+  async function cargarCatalogos(){
+    const [b,t,v,s] = await Promise.all([
+      db.from('bancos').select('*').eq('activo',true).order('nombre'),
+      db.from('tarjetas').select('*').eq('activo',true).order('nombre'),
+      db.from('vias').select('*').eq('activo',true).order('nombre'),
+      db.from('sucursales').select('*').eq('activo',true),
+    ]);
+    BANCOS=b.data||[]; TARJETAS=t.data||[]; VIAS=v.data||[]; SUCURSALES=s.data||[];
+    armarFormFijo();
+  }
+
+  function uniq(arr){ return [...new Set(arr.filter(Boolean))].sort(); }
+
+  function armarFormFijo(){
+    $('f-banco').innerHTML = '<option value="">Elegir banco…</option>' + BANCOS.map(b=>`<option value="${b.id}">${b.nombre}</option>`).join('');
+    $('f-via').innerHTML = '<option value="">Sin vía específica</option>' + VIAS.map(v=>`<option value="${v.id}">${v.nombre}</option>`).join('');
+    $('f-tarjetas').innerHTML = TARJETAS.map(t=>`<div class="chip" data-v="${t.id}">${t.nombre}</div>`).join('');
+    $('f-dias').innerHTML = DIAS.map(([n,l])=>`<div class="chip on" data-v="${n}">${l}</div>`).join('');
+    $('f-marcas').innerHTML = uniq(SUCURSALES.map(s=>s.marca)).map(m=>`<div class="chip" data-v="${m}">${m}</div>`).join('');
+    $('f-regiones').innerHTML = uniq(SUCURSALES.map(s=>s.region)).map(r=>`<div class="chip" data-v="${r}">${r}</div>`).join('');
+    $('f-provincias').innerHTML = uniq(SUCURSALES.map(s=>s.provincia)).map(p=>`<option value="${p}">${p}</option>`).join('');
+    $('f-shoppings').innerHTML = uniq(SUCURSALES.map(s=>s.shopping)).map(sh=>`<option value="${sh}">${sh}</option>`).join('');
+
+    // chips toggle genéricos (multi)
+    document.querySelectorAll('#f-tarjetas .chip, #f-dias .chip, #f-marcas .chip, #f-regiones .chip').forEach(c=>{
+      c.onclick = () => { c.classList.toggle('on'); recalcular(); };
+    });
+    ['f-provincias','f-shoppings'].forEach(id => $(id).onchange = recalcular);
+  }
+
+  // ---------- Reglas y contador ----------
+  function reglasActuales(){
+    if($('f-todas').checked) return [{tipo_regla:'todas', valor:null}];
+    const R = [];
+    document.querySelectorAll('#f-marcas .chip.on').forEach(c=>R.push({tipo_regla:'marca', valor:c.dataset.v}));
+    document.querySelectorAll('#f-regiones .chip.on').forEach(c=>R.push({tipo_regla:'region', valor:c.dataset.v}));
+    [...$('f-provincias').selectedOptions].forEach(o=>R.push({tipo_regla:'provincia', valor:o.value}));
+    [...$('f-shoppings').selectedOptions].forEach(o=>R.push({tipo_regla:'shopping', valor:o.value}));
+    return R;
+  }
+  function matchRegla(r,s){
+    switch(r.tipo_regla){
+      case 'todas': return true;
+      case 'marca': return s.marca===r.valor;
+      case 'provincia': return s.provincia===r.valor;
+      case 'region': return s.region===r.valor;
+      case 'shopping': return s.shopping===r.valor;
+      default: return false;
+    }
+  }
+  function recalcular(){
+    const R = reglasActuales();
+    let n = 0;
+    if(R.length) n = SUCURSALES.filter(s => R.some(r=>matchRegla(r,s))).length;
+    $('f-impacto').textContent = n + (n===1?' sucursal':' sucursales');
+  }
+
+  // ---------- Abrir / cerrar modal ----------
+  function abrirForm(){
+    $('form-msg').classList.remove('show');
+    $('overlay').classList.add('show');
+    recalcular();
+  }
+  $('btn-nueva').onclick = abrirForm;
+  $('btn-cancel').onclick = () => $('overlay').classList.remove('show');
+  $('f-todas').onchange = () => { $('f-ejes').classList.toggle('show', !$('f-todas').checked); recalcular(); };
+  $('f-ejes').classList.add('show');
+
+  // tipo → mostrar bloques
+  document.querySelectorAll('#f-tipo .chip').forEach(c=>{
+    c.onclick = () => {
+      document.querySelectorAll('#f-tipo .chip').forEach(x=>x.classList.remove('on'));
+      c.classList.add('on');
+      const t = c.dataset.v;
+      $('block-fin').classList.toggle('show', t==='financiacion'||t==='ambos');
+      $('block-rei').classList.toggle('show', t==='reintegro'||t==='ambos');
+    };
+  });
+
+  // ---------- Guardar ----------
+  $('btn-guardar').onclick = async () => {
+    const msg = $('form-msg'); msg.classList.remove('show');
+    const tipo = document.querySelector('#f-tipo .chip.on').dataset.v;
+    const nombre = $('f-nombre').value.trim();
+    const banco_id = $('f-banco').value;
+    const via_id = $('f-via').value || null;
+    const tarjetas = [...document.querySelectorAll('#f-tarjetas .chip.on')].map(c=>c.dataset.v);
+    const dias = [...document.querySelectorAll('#f-dias .chip.on')].map(c=>parseInt(c.dataset.v));
+    const reglas = reglasActuales();
+
+    const err = m => { msg.textContent=m; msg.classList.add('show'); };
+    if(!nombre) return err('Poné un nombre interno.');
+    if(!banco_id) return err('Elegí un banco.');
+    if(!tarjetas.length) return err('Elegí al menos una tarjeta.');
+    if(!reglas.length) return err('Elegí a qué sucursales aplica (o marcá "todas").');
+    if((tipo==='financiacion'||tipo==='ambos') && !$('f-cuotas').value) return err('Poné la cantidad de cuotas.');
+    if((tipo==='reintegro'||tipo==='ambos') && !$('f-pct').value) return err('Poné el % de reintegro.');
+
+    const fin = (tipo==='financiacion'||tipo==='ambos');
+    const rei = (tipo==='reintegro'||tipo==='ambos');
+    const promoData = {
+      tipo, nombre_interno:nombre, banco_id, via_id,
+      cuotas: fin ? parseInt($('f-cuotas').value) : null,
+      interes: fin ? $('f-interes').value : null,
+      reintegro_pct: rei ? parseFloat($('f-pct').value) : null,
+      tope_monto: rei && $('f-tope').value ? parseFloat($('f-tope').value) : null,
+      tope_periodo: rei ? $('f-tope-periodo').value : null,
+      dias, vigencia_desde: $('f-desde').value||null, vigencia_hasta: $('f-hasta').value||null,
+      estado: $('f-estado').value, condiciones: $('f-cond').value.trim()||null, tipo_registro:'promo'
+    };
+
+    $('btn-guardar').disabled = true; $('btn-guardar').textContent='Guardando…';
+    const { data:pro, error:e1 } = await db.from('promociones').insert(promoData).select().single();
+    if(e1){ $('btn-guardar').disabled=false; $('btn-guardar').textContent='Guardar promoción'; return err('Error al guardar: '+e1.message); }
+
+    const okT = tarjetas.length ? (await db.from('promocion_tarjetas').insert(tarjetas.map(t=>({promocion_id:pro.id, tarjeta_id:t})))).error : null;
+    const okR = reglas.length ? (await db.from('promocion_reglas').insert(reglas.map(r=>({promocion_id:pro.id, tipo_regla:r.tipo_regla, valor:r.valor, incluir:true})))).error : null;
+    $('btn-guardar').disabled=false; $('btn-guardar').textContent='Guardar promoción';
+    if(okT||okR) return err('La promo se creó pero falló algo en tarjetas/reglas: '+((okT||okR).message));
+
+    resetForm();
+    $('overlay').classList.remove('show');
+    cargarPromos();
+  };
+
+  function resetForm(){
+    $('f-nombre').value=''; $('f-banco').value=''; $('f-via').value='';
+    $('f-cuotas').value=''; $('f-pct').value=''; $('f-tope').value='';
+    $('f-desde').value=''; $('f-hasta').value=''; $('f-cond').value='';
+    $('f-estado').value='borrador'; $('f-todas').checked=false; $('f-ejes').classList.add('show');
+    document.querySelectorAll('#f-tarjetas .chip.on, #f-marcas .chip.on, #f-regiones .chip.on').forEach(c=>c.classList.remove('on'));
+    [...$('f-provincias').options,...$('f-shoppings').options].forEach(o=>o.selected=false);
+    document.querySelectorAll('#f-dias .chip').forEach(c=>c.classList.add('on'));
+    document.querySelectorAll('#f-tipo .chip').forEach((c,i)=>c.classList.toggle('on', i===0));
+    $('block-fin').classList.add('show'); $('block-rei').classList.remove('show');
+  }
+
+  // ---------- Lista ----------
+  async function cargarPromos(){
+    const { data, error } = await db.from('promociones')
+      .select('*, banco:bancos(nombre), promocion_tarjetas(tarjetas(nombre))')
+      .order('created_at', { ascending:false });
+    if(error){ $('lista').innerHTML='<div class="empty">Error: '+error.message+'</div>'; return; }
+    TODAS = data||[]; pintar();
+  }
+  function detalleTexto(p){
+    if(p.tipo==='reintegro'){ let t=p.reintegro_pct+'% reintegro'; if(p.tope_monto) t+=' · tope $'+Number(p.tope_monto).toLocaleString('es-AR'); return t; }
+    if(p.tipo==='financiacion'){ return p.cuotas+' cuotas '+(p.interes==='sin_interes'?'sin interés':'con interés'); }
+    return 'Financiación + reintegro';
+  }
+  function tarjetasTexto(p){ return (p.promocion_tarjetas||[]).map(x=>x.tarjetas?.nombre).filter(Boolean).join(' · '); }
+  function fecha(f){ return f ? f.split('-').reverse().join('/') : '—'; }
+  function promoHTML(p){
+    const banco=p.banco?.nombre||'(sin banco)', tarj=tarjetasTexto(p);
+    const estado = p.tipo_registro==='plantilla' ? 'plantilla' : p.estado;
+    const alt = !p.archivada && p.tipo_registro!=='plantilla' && ['activa','pausada','borrador'].includes(p.estado);
+    const accionTxt = p.estado==='activa' ? 'Pausar' : 'Activar';
+    let acciones = '';
+    if(p.archivada){
+      acciones = '<button class="mini" data-restaurar="'+p.id+'">Restaurar</button>';
+    } else {
+      if(alt) acciones += '<button class="mini" data-id="'+p.id+'" data-estado="'+p.estado+'">'+accionTxt+'</button>';
+      acciones += '<button class="mini danger" data-eliminar="'+p.id+'">Eliminar</button>';
+    }
+    return '<div class="promo"'+(p.archivada?' style="opacity:.6"':'')+'><div class="main">'+
+      '<div class="nombre">'+p.nombre_interno+'</div>'+
+      '<div class="det">'+banco+(tarj?' · '+tarj:'')+(p.tipo_registro!=='plantilla'&&p.vigencia_hasta?' · vence '+fecha(p.vigencia_hasta):'')+'</div>'+
+      '<div class="badges">'+(p.archivada?'<span class="badge b-vencida">archivada</span>':'<span class="badge b-'+estado+'">'+estado+'</span>')+'<span class="badge b-tipo">'+p.tipo+'</span></div>'+
+      '</div><div class="val">'+detalleTexto(p)+'</div>'+
+      '<div class="actions">'+acciones+'</div></div>';
+  }
+  function cumpleBusqueda(p,q){
+    if(!q) return true;
+    return (p.nombre_interno+' '+(p.banco?.nombre||'')).toLowerCase().includes(q);
+  }
+  function pintar(){
+    const q=$('buscar').value.toLowerCase().trim(), fe=$('filtro-estado').value;
+    let items = TODAS.filter(p=>{
+      if(fe==='archivada') return p.archivada===true && cumpleBusqueda(p,q);
+      if(p.archivada) return false;                       // ocultar archivadas de las vistas normales
+      const estado = p.tipo_registro==='plantilla'?'plantilla':p.estado;
+      if(fe && estado!==fe) return false;
+      return cumpleBusqueda(p,q);
+    });
+    if(!items.length){ $('lista').innerHTML='<div class="empty">No hay promociones para ese filtro.</div>'; return; }
+    $('lista').innerHTML = items.map(promoHTML).join('');
+    document.querySelectorAll('.mini[data-id]').forEach(b=> b.onclick=()=>alternarEstado(b.dataset.id,b.dataset.estado));
+    document.querySelectorAll('.mini[data-eliminar]').forEach(b=> b.onclick=()=>archivar(b.dataset.eliminar, true));
+    document.querySelectorAll('.mini[data-restaurar]').forEach(b=> b.onclick=()=>archivar(b.dataset.restaurar, false));
+  }
+  async function alternarEstado(id, estadoActual){
+    const nuevo = estadoActual==='activa'?'pausada':'activa';
+    const { error } = await db.from('promociones').update({estado:nuevo}).eq('id',id);
+    if(error){ alert('No se pudo actualizar: '+error.message); return; }
+    cargarPromos();
+  }
+  async function archivar(id, archivar){
+    if(archivar && !confirm('¿Archivar esta promo? Deja de mostrarse en el QR, pero queda en el historial y la podés restaurar.')) return;
+    const { error } = await db.from('promociones').update({archivada:archivar}).eq('id',id);
+    if(error){ alert('No se pudo: '+error.message); return; }
+    cargarPromos();
+  }
+  $('buscar').addEventListener('input', pintar);
+  $('filtro-estado').addEventListener('change', pintar);
+
+  chequearSesion();
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beneficios y financiaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFFFFF; --ink:#0A0A0A; --muted:#6E6E6E; --line:#E6E6E6;
+    --marca:#0A0A0A; --marca-text:#FFFFFF;
+    --display:"Anton",Impact,sans-serif;
+    --sans:"Archivo",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.4;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:460px;margin:0 auto;min-height:100vh;background:var(--bg)}
+
+  header{background:var(--ink);color:#fff;padding:26px 22px 24px;transition:background .2s}
+  .brand-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+  .brand-chip{background:#fff;border-radius:10px;padding:8px 11px;display:none;align-items:center;box-shadow:0 2px 10px rgba(0,0,0,.15);flex-shrink:0}
+  .brand-chip img{height:26px;width:auto;display:block}
+  .brand-chip.on{display:flex}
+  header .marca{font-size:12px;font-weight:600;opacity:.8;letter-spacing:.04em;text-transform:uppercase}
+  header .marca.hide{display:none}
+  header h1{font-family:var(--display);font-size:34px;font-weight:400;line-height:.98;margin-top:4px;text-transform:uppercase;letter-spacing:.005em}
+  header .sub{font-size:12.5px;font-weight:500;opacity:.85;margin-top:8px;text-transform:capitalize}
+
+  .tabs{display:flex;gap:8px;padding:14px 22px;position:sticky;top:0;background:var(--bg);z-index:5;border-bottom:2px solid var(--ink)}
+  .tab{font-size:12px;font-weight:700;padding:8px 15px;cursor:pointer;white-space:nowrap;color:var(--ink);background:#fff;border:2px solid var(--ink);border-radius:100px;text-transform:uppercase;letter-spacing:.02em}
+  .tab.on{background:var(--ink);color:#fff}
+
+  main{padding:16px 22px 44px}
+  .card{border:2px solid var(--ink);border-radius:14px;padding:18px;margin-bottom:14px}
+  .tipo{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--marca-text);background:var(--marca);padding:4px 11px;border-radius:100px;margin-bottom:12px}
+  .hero{display:flex;align-items:baseline;gap:10px;margin-bottom:2px}
+  .hero+.hero{margin-top:8px}
+  .hero .n{font-family:var(--display);font-size:52px;line-height:.9;font-weight:400;color:var(--ink);letter-spacing:.01em}
+  .hero .unit{font-family:var(--display);font-size:18px;line-height:1;color:var(--ink);text-transform:uppercase}
+  .banco-row{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-top:14px}
+  .banco{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.01em}
+  .tarjetas{font-size:12.5px;color:var(--muted);font-weight:500}
+  .tags{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+  .tag{font-size:11px;font-weight:600;color:var(--ink);background:#F2F2F2;border-radius:6px;padding:4px 9px;text-transform:uppercase;letter-spacing:.02em}
+  .cond{font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.5}
+
+  .state{text-align:center;padding:60px 26px;color:var(--muted)}
+  .state h2{font-family:var(--display);font-size:26px;font-weight:400;color:var(--ink);margin-bottom:8px;text-transform:uppercase}
+  .state code{background:#F2F2F2;padding:2px 7px;border-radius:5px;font-size:13px;color:var(--ink)}
+  .hidden{display:none}
+  footer{text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header id="header">
+    <div class="brand-row">
+      <div class="brand-chip" id="h-chip"><img id="h-logo" alt=""></div>
+      <div class="marca" id="h-marca">&nbsp;</div>
+    </div>
+    <h1 id="h-nombre">Cargando…</h1>
+    <div class="sub" id="h-sub">Beneficios vigentes</div>
+  </header>
+
+  <div class="tabs hidden" id="tabs">
+    <div class="tab on" data-f="todos">Todos</div>
+    <div class="tab" data-f="financiacion">Financiación</div>
+    <div class="tab" data-f="reintegro">Reintegros</div>
+  </div>
+
+  <main id="main">
+    <div class="state"><h2>Cargando beneficios…</h2></div>
+  </main>
+
+  <footer>Actualizado en tiempo real</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ====== CONFIGURÁ ESTAS DOS LÍNEAS =====================
+  // Están en Supabase → Project Settings → API Keys
+  const SUPABASE_URL = 'https://mvbysjlsdgrgiootsvta.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_bhKUTnZ8DziT8IojwqS7HQ_QGpOJ45-';
+  // =======================================================
+
+  // Color de header por marca. Sumá o cambiá acá cuando quieras.
+  const MARCAS = {
+    'Sporting':       { bg:'#00BB00', text:'#0a0a0a' },
+    'Sportsman':      { bg:'#F0D030', text:'#0a0a0a' },
+    'Woker':          { bg:'#18181b', text:'#ffffff' },
+    'Felina':         { bg:'#701080', text:'#ffffff' },
+    'Just For Sport': { bg:'#303080', text:'#ffffff' },
+    'Children':       { bg:'#C01030', text:'#ffffff' },
+    'Adidas':         { bg:'#18181b', text:'#ffffff' },
+    'Nike':           { bg:'#18181b', text:'#ffffff' },
+  };
+  const MARCA_DEFAULT = { bg:'#18181b', text:'#ffffff' };
+
+  const dias_nombre = ['', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const main = document.getElementById('main');
+
+  function slug(txt){
+    return (txt||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .trim().replace(/\s+/g,'-');
+  }
+
+  function estado(titulo, detalle){
+    document.getElementById('tabs').classList.add('hidden');
+    main.innerHTML = '<div class="state"><h2>' + titulo + '</h2><p>' + (detalle||'') + '</p></div>';
+  }
+
+  function pintarHeader(s){
+    const m = MARCAS[s.marca] || MARCA_DEFAULT;
+    document.documentElement.style.setProperty('--marca', m.bg);
+    document.documentElement.style.setProperty('--marca-text', m.text);
+    const header = document.getElementById('header');
+    header.style.background = m.bg;
+    header.style.color = m.text;
+
+    // Logo de marca: busca logos/<marca>.png ; si no está, muestra el texto
+    const chip = document.getElementById('h-chip');
+    const marcaTxt = document.getElementById('h-marca');
+    const img = document.getElementById('h-logo');
+    marcaTxt.textContent = s.marca;
+    img.onload = () => { chip.classList.add('on'); marcaTxt.classList.add('hide'); };
+    img.onerror = () => { chip.classList.remove('on'); marcaTxt.classList.remove('hide'); };
+    img.src = 'logos/' + slug(s.marca) + '.png';
+
+    document.getElementById('h-nombre').textContent = s.nombre;
+    document.getElementById('h-sub').textContent = (s.shopping ? s.shopping + ', ' : '') + (s.provincia||'');
+  }
+
+  function matchRegla(r, s){
+    switch(r.tipo_regla){
+      case 'todas':     return true;
+      case 'marca':     return s.marca === r.valor;
+      case 'provincia': return s.provincia === r.valor;
+      case 'region':    return s.region === r.valor;
+      case 'shopping':  return s.shopping === r.valor;
+      case 'sucursal':  return String(s.id) === String(r.valor);
+      default:          return false;
+    }
+  }
+
+  function aplica(promo, s){
+    let incluida = false, excluida = false;
+    for(const r of (promo.promocion_reglas||[])){
+      if(matchRegla(r, s)){ r.incluir ? incluida = true : excluida = true; }
+    }
+    return incluida && !excluida;
+  }
+
+  function vigente(promo){
+    const hoy = new Date();
+    const p = n => String(n).padStart(2,'0');
+    const hoyStr = hoy.getFullYear() + '-' + p(hoy.getMonth()+1) + '-' + p(hoy.getDate());
+    if(promo.vigencia_desde && hoyStr < promo.vigencia_desde) return false;
+    if(promo.vigencia_hasta && hoyStr > promo.vigencia_hasta) return false;
+    const d = hoy.getDay() === 0 ? 7 : hoy.getDay();
+    const dias = promo.dias || [];
+    if(dias.length && !dias.includes(d)) return false;
+    return true;
+  }
+
+  function tarjetasTexto(promo){
+    const t = (promo.promocion_tarjetas||[]).map(x => x.tarjetas?.nombre).filter(Boolean);
+    let base = t.join(' · ');
+    if(promo.via?.nombre && promo.via.nombre !== 'Directo') base += ' vía ' + promo.via.nombre;
+    return base || '—';
+  }
+
+  function cardHTML(promo){
+    const esFin = promo.tipo === 'financiacion' || promo.tipo === 'ambos';
+    const esRei = promo.tipo === 'reintegro'   || promo.tipo === 'ambos';
+    const tipoTxt = promo.tipo === 'ambos' ? 'Financiación + reintegro' : (esFin ? 'Financiación' : 'Reintegro');
+
+    let hero = '';
+    if(esFin){
+      hero += '<div class="hero"><span class="n">'+promo.cuotas+'</span>' +
+              '<span class="unit">cuotas '+(promo.interes==='sin_interes'?'sin interés':'con interés')+'</span></div>';
+    }
+    if(esRei){
+      hero += '<div class="hero"><span class="n">'+promo.reintegro_pct+'%</span><span class="unit">de reintegro</span></div>';
+    }
+
+    const tags = [];
+    const dias = promo.dias || [];
+    if(dias.length && dias.length < 7) tags.push(dias.map(d=>dias_nombre[d]).join(', '));
+    if(promo.vigencia_hasta) tags.push('Hasta ' + promo.vigencia_hasta.split('-').reverse().join('/'));
+    if(esRei && promo.tope_monto) tags.push('Tope $' + Number(promo.tope_monto).toLocaleString('es-AR'));
+    if(esRei && promo.tope_periodo) tags.push(promo.tope_periodo === 'transaccion' ? 'x transacción' : 'mensual');
+
+    return '<div class="card" data-tipo="'+promo.tipo+'">' +
+      '<div class="tipo">'+tipoTxt+'</div>' +
+      hero +
+      '<div class="banco-row"><span class="banco">'+(promo.banco?.nombre||'')+'</span>' +
+        '<span class="tarjetas">'+tarjetasTexto(promo)+'</span></div>' +
+      (tags.length ? '<div class="tags">'+tags.map(t=>'<span class="tag">'+t+'</span>').join('')+'</div>' : '') +
+      (promo.condiciones ? '<div class="cond">'+promo.condiciones+'</div>' : '') +
+    '</div>';
+  }
+
+  function render(promos){
+    if(!promos.length){ estado('No hay beneficios vigentes hoy', 'Volvé a escanear más adelante.'); return; }
+    document.getElementById('tabs').classList.remove('hidden');
+    main.innerHTML = promos.map(cardHTML).join('');
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = () => {
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+        tab.classList.add('on');
+        const f = tab.dataset.f;
+        document.querySelectorAll('.card').forEach(c => {
+          const tipo = c.dataset.tipo;
+          const ok = f==='todos' || tipo===f || tipo==='ambos';
+          c.style.display = ok ? '' : 'none';
+        });
+      };
+    });
+  }
+
+  async function iniciar(){
+    if(SUPABASE_URL.includes('TU-PROYECTO')){
+      estado('Falta configurar', 'Poné tu URL y anon key de Supabase en el código.'); return;
+    }
+    const suc = new URLSearchParams(location.search).get('suc');
+    if(!suc){ estado('Sucursal no indicada', 'Agregá <code>?suc=NÚMERO</code> a la dirección.'); return; }
+
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const { data: sucs, error: e1 } = await db.from('sucursales').select('*').eq('nro', suc).limit(1);
+    if(e1){ estado('Error de conexión', e1.message); return; }
+    const s = sucs && sucs[0];
+    if(!s){ estado('Sucursal no encontrada', 'No existe la sucursal ' + suc + '.'); return; }
+
+    pintarHeader(s);
+
+    const { data: promos, error: e2 } = await db.from('promociones')
+      .select('*, banco:bancos(nombre), via:vias(nombre), promocion_tarjetas(tarjetas(nombre)), promocion_reglas(*)')
+      .eq('estado','activa').eq('tipo_registro','promo').eq('archivada', false);
+    if(e2){ estado('Error al traer promociones', e2.message); return; }
+
+    const visibles = (promos||[]).filter(p => aplica(p, s) && vigente(p));
+    render(visibles);
+  }
+
+  iniciar();
+</script>
+</body>
+</html>
