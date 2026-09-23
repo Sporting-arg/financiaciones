@@ -59,14 +59,13 @@
   .b-vencida{background:var(--rojo-bg);color:var(--rojo)}
   .b-plantilla{background:var(--violeta-bg);color:var(--violeta)}
   .b-tipo{background:var(--gris-bg);color:var(--muted)}
-  .promo .actions{display:flex;gap:8px;flex-shrink:0}
+  .promo .actions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
   .mini{height:34px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:0 12px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--ink)}
   .mini:hover{background:var(--bg)}
   .mini.danger{color:var(--rojo);border-color:#f1c9c9}
   .mini.danger:hover{background:var(--rojo-bg)}
   .empty,.loading{text-align:center;padding:50px;color:var(--muted)}
 
-  /* ---- Modal formulario ---- */
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow-y:auto;z-index:50}
   .overlay.show{display:flex}
   .modal{background:var(--card);border-radius:16px;width:100%;max-width:640px;padding:26px;margin:auto}
@@ -96,7 +95,6 @@
   .cfg-logo{width:46px;height:30px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:#fff;flex-shrink:0}
   .cfg-logo.ph{display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--muted);text-align:center;line-height:1.1}
   .cfg-nombre{flex:1;font-size:14px}
-  .cfg-item input[type=file]{font-size:12px;max-width:200px}
   .cfg-add{display:flex;gap:8px;margin-top:12px}
   .cfg-add input{flex:1}
   .cfg-file{font-size:11px;color:var(--muted);background:var(--bg);padding:3px 8px;border-radius:5px;font-family:ui-monospace,monospace}
@@ -144,7 +142,7 @@
 <!-- ===== Modal formulario ===== -->
 <div class="overlay" id="overlay">
   <div class="modal">
-    <h2>Nueva promoción</h2>
+    <h2 id="modal-titulo">Nueva promoción</h2>
     <div class="sub">Completá los datos y elegí a qué sucursales aplica.</div>
 
     <div class="field">
@@ -176,6 +174,10 @@
         <div><label>Cuotas</label><input type="number" id="f-cuotas" min="1" placeholder="6"></div>
         <div><label>Interés</label><select id="f-interes"><option value="sin_interes">Sin interés</option><option value="con_interes">Con interés</option></select></div>
       </div>
+      <div class="field" style="margin-top:12px;margin-bottom:0">
+        <label>Mínimo de compra $ (opcional)</label>
+        <input type="number" id="f-minimo" min="0" placeholder="Sin mínimo">
+      </div>
     </div>
 
     <div class="cond-block" id="block-rei">
@@ -199,7 +201,6 @@
       <div class="field"><label>Vigencia hasta</label><input type="date" id="f-hasta"></div>
     </div>
 
-    <!-- Targeting -->
     <div class="target">
       <div class="head">
         <span class="lbl">¿A qué sucursales aplica?</span>
@@ -240,7 +241,7 @@
 <div class="overlay" id="overlay-cfg">
   <div class="modal">
     <h2>Configuración</h2>
-    <div class="sub">Gestioná bancos, tarjetas y vías, y subiles el logo para que aparezcan en el QR.</div>
+    <div class="sub">Gestioná bancos, tarjetas y vías. Subí el logo de cada uno al repo (carpeta logos-bancos) con el nombre que se indica.</div>
     <div class="cfg-sec"><h3>Bancos</h3><div id="cfg-bancos"></div>
       <div class="cfg-add"><input type="text" id="add-banco" placeholder="Nuevo banco…"><button class="btn" data-add="bancos">Agregar</button></div></div>
     <div class="cfg-sec"><h3>Tarjetas</h3><div id="cfg-tarjetas"></div>
@@ -259,9 +260,9 @@
   const $ = id => document.getElementById(id);
 
   let TODAS = [], BANCOS = [], TARJETAS = [], VIAS = [], SUCURSALES = [];
+  let modo = 'nuevo', editId = null;
   const DIAS = [['1','Lun'],['2','Mar'],['3','Mié'],['4','Jue'],['5','Vie'],['6','Sáb'],['7','Dom']];
 
-  // ---------- Sesión ----------
   async function chequearSesion(){
     const { data:{ session } } = await db.auth.getSession();
     if(session) entrar(session); else mostrarLogin();
@@ -282,7 +283,6 @@
   $('password').addEventListener('keydown', e => { if(e.key==='Enter') $('btn-login').click(); });
   $('btn-logout').onclick = async () => { await db.auth.signOut(); mostrarLogin(); };
 
-  // ---------- Catálogos ----------
   async function cargarCatalogos(){
     const [b,t,v,s] = await Promise.all([
       db.from('bancos').select('*').eq('activo',true).order('nombre'),
@@ -293,7 +293,6 @@
     BANCOS=b.data||[]; TARJETAS=t.data||[]; VIAS=v.data||[]; SUCURSALES=s.data||[];
     armarFormFijo();
   }
-
   function uniq(arr){ return [...new Set(arr.filter(Boolean))].sort(); }
 
   function armarFormFijo(){
@@ -305,15 +304,12 @@
     $('f-regiones').innerHTML = uniq(SUCURSALES.map(s=>s.region)).map(r=>`<div class="chip" data-v="${r}">${r}</div>`).join('');
     $('f-provincias').innerHTML = uniq(SUCURSALES.map(s=>s.provincia)).map(p=>`<option value="${p}">${p}</option>`).join('');
     $('f-shoppings').innerHTML = uniq(SUCURSALES.map(s=>s.shopping)).map(sh=>`<option value="${sh}">${sh}</option>`).join('');
-
-    // chips toggle genéricos (multi)
     document.querySelectorAll('#f-tarjetas .chip, #f-dias .chip, #f-marcas .chip, #f-regiones .chip').forEach(c=>{
       c.onclick = () => { c.classList.toggle('on'); recalcular(); };
     });
     ['f-provincias','f-shoppings'].forEach(id => $(id).onchange = recalcular);
   }
 
-  // ---------- Reglas y contador ----------
   function reglasActuales(){
     if($('f-todas').checked) return [{tipo_regla:'todas', valor:null}];
     const R = [];
@@ -340,18 +336,16 @@
     $('f-impacto').textContent = n + (n===1?' sucursal':' sucursales');
   }
 
-  // ---------- Abrir / cerrar modal ----------
-  function abrirForm(){
+  // abrir formulario en cada modo
+  $('btn-nueva').onclick = () => {
+    modo='nuevo'; editId=null; resetForm();
+    $('modal-titulo').textContent='Nueva promoción';
     $('form-msg').classList.remove('show');
-    $('overlay').classList.add('show');
-    recalcular();
-  }
-  $('btn-nueva').onclick = abrirForm;
+    $('overlay').classList.add('show'); recalcular();
+  };
   $('btn-cancel').onclick = () => $('overlay').classList.remove('show');
   $('f-todas').onchange = () => { $('f-ejes').classList.toggle('show', !$('f-todas').checked); recalcular(); };
-  $('f-ejes').classList.add('show');
 
-  // tipo → mostrar bloques
   document.querySelectorAll('#f-tipo .chip').forEach(c=>{
     c.onclick = () => {
       document.querySelectorAll('#f-tipo .chip').forEach(x=>x.classList.remove('on'));
@@ -362,7 +356,67 @@
     };
   });
 
-  // ---------- Guardar ----------
+  async function traerCompleta(id){
+    const { data } = await db.from('promociones')
+      .select('*, promocion_tarjetas(tarjeta_id), promocion_reglas(*)').eq('id', id).single();
+    return data;
+  }
+  function marcarChips(cont, valores){
+    document.querySelectorAll('#'+cont+' .chip').forEach(c=>c.classList.toggle('on', valores.includes(c.dataset.v)));
+  }
+  function precargarForm(p){
+    resetForm();
+    document.querySelectorAll('#f-tipo .chip').forEach(c=>c.classList.toggle('on', c.dataset.v===p.tipo));
+    $('block-fin').classList.toggle('show', p.tipo==='financiacion'||p.tipo==='ambos');
+    $('block-rei').classList.toggle('show', p.tipo==='reintegro'||p.tipo==='ambos');
+    $('f-nombre').value = p.nombre_interno||'';
+    $('f-banco').value = p.banco_id||'';
+    $('f-via').value = p.via_id||'';
+    $('f-cuotas').value = p.cuotas||'';
+    $('f-interes').value = p.interes||'sin_interes';
+    $('f-minimo').value = p.minimo_compra||'';
+    $('f-pct').value = p.reintegro_pct||'';
+    $('f-tope').value = p.tope_monto||'';
+    $('f-tope-periodo').value = p.tope_periodo||'transaccion';
+    $('f-desde').value = p.vigencia_desde||'';
+    $('f-hasta').value = p.vigencia_hasta||'';
+    $('f-estado').value = p.estado||'borrador';
+    $('f-cond').value = p.condiciones||'';
+    marcarChips('f-tarjetas', (p.promocion_tarjetas||[]).map(x=>String(x.tarjeta_id)));
+    marcarChips('f-dias', (p.dias||[]).map(String));
+    const reglas = p.promocion_reglas||[];
+    if(reglas.some(r=>r.tipo_regla==='todas')){
+      $('f-todas').checked=true; $('f-ejes').classList.remove('show');
+    } else {
+      $('f-todas').checked=false; $('f-ejes').classList.add('show');
+      marcarChips('f-marcas', reglas.filter(r=>r.tipo_regla==='marca').map(r=>r.valor));
+      marcarChips('f-regiones', reglas.filter(r=>r.tipo_regla==='region').map(r=>r.valor));
+      const prov = reglas.filter(r=>r.tipo_regla==='provincia').map(r=>r.valor);
+      const shop = reglas.filter(r=>r.tipo_regla==='shopping').map(r=>r.valor);
+      [...$('f-provincias').options].forEach(o=>o.selected = prov.includes(o.value));
+      [...$('f-shoppings').options].forEach(o=>o.selected = shop.includes(o.value));
+    }
+    recalcular();
+  }
+  async function abrirEditar(id){
+    const p = await traerCompleta(id); if(!p) return;
+    modo='editar'; editId=id;
+    $('modal-titulo').textContent='Editar promoción';
+    $('form-msg').classList.remove('show');
+    precargarForm(p);
+    $('overlay').classList.add('show');
+  }
+  async function abrirDuplicar(id){
+    const p = await traerCompleta(id); if(!p) return;
+    modo='nuevo'; editId=null;
+    $('modal-titulo').textContent='Duplicar promoción';
+    $('form-msg').classList.remove('show');
+    precargarForm(p);
+    $('f-nombre').value = 'Copia de ' + (p.nombre_interno||'');
+    $('f-estado').value = 'borrador';
+    $('overlay').classList.add('show');
+  }
+
   $('btn-guardar').onclick = async () => {
     const msg = $('form-msg'); msg.classList.remove('show');
     const tipo = document.querySelector('#f-tipo .chip.on').dataset.v;
@@ -372,7 +426,6 @@
     const tarjetas = [...document.querySelectorAll('#f-tarjetas .chip.on')].map(c=>c.dataset.v);
     const dias = [...document.querySelectorAll('#f-dias .chip.on')].map(c=>parseInt(c.dataset.v));
     const reglas = reglasActuales();
-
     const err = m => { msg.textContent=m; msg.classList.add('show'); };
     if(!nombre) return err('Poné un nombre interno.');
     if(!banco_id) return err('Elegí un banco.');
@@ -387,6 +440,7 @@
       tipo, nombre_interno:nombre, banco_id, via_id,
       cuotas: fin ? parseInt($('f-cuotas').value) : null,
       interes: fin ? $('f-interes').value : null,
+      minimo_compra: fin && $('f-minimo').value ? parseFloat($('f-minimo').value) : null,
       reintegro_pct: rei ? parseFloat($('f-pct').value) : null,
       tope_monto: rei && $('f-tope').value ? parseFloat($('f-tope').value) : null,
       tope_periodo: rei ? $('f-tope-periodo').value : null,
@@ -395,14 +449,23 @@
     };
 
     $('btn-guardar').disabled = true; $('btn-guardar').textContent='Guardando…';
-    const { data:pro, error:e1 } = await db.from('promociones').insert(promoData).select().single();
-    if(e1){ $('btn-guardar').disabled=false; $('btn-guardar').textContent='Guardar promoción'; return err('Error al guardar: '+e1.message); }
-
-    const okT = tarjetas.length ? (await db.from('promocion_tarjetas').insert(tarjetas.map(t=>({promocion_id:pro.id, tarjeta_id:t})))).error : null;
-    const okR = reglas.length ? (await db.from('promocion_reglas').insert(reglas.map(r=>({promocion_id:pro.id, tipo_regla:r.tipo_regla, valor:r.valor, incluir:true})))).error : null;
+    let proId = editId;
+    if(modo==='editar'){
+      const { error:eu } = await db.from('promociones').update(promoData).eq('id', editId);
+      if(eu){ $('btn-guardar').disabled=false; $('btn-guardar').textContent='Guardar promoción'; return err('Error al actualizar: '+eu.message); }
+      await db.from('promocion_tarjetas').delete().eq('promocion_id', editId);
+      await db.from('promocion_reglas').delete().eq('promocion_id', editId);
+    } else {
+      const { data:pro, error:e1 } = await db.from('promociones').insert(promoData).select().single();
+      if(e1){ $('btn-guardar').disabled=false; $('btn-guardar').textContent='Guardar promoción'; return err('Error al guardar: '+e1.message); }
+      proId = pro.id;
+    }
+    const okT = tarjetas.length ? (await db.from('promocion_tarjetas').insert(tarjetas.map(t=>({promocion_id:proId, tarjeta_id:t})))).error : null;
+    const okR = reglas.length ? (await db.from('promocion_reglas').insert(reglas.map(r=>({promocion_id:proId, tipo_regla:r.tipo_regla, valor:r.valor, incluir:true})))).error : null;
     $('btn-guardar').disabled=false; $('btn-guardar').textContent='Guardar promoción';
-    if(okT||okR) return err('La promo se creó pero falló algo en tarjetas/reglas: '+((okT||okR).message));
+    if(okT||okR) return err('Se guardó la promo pero falló algo en tarjetas/reglas: '+((okT||okR).message));
 
+    modo='nuevo'; editId=null;
     resetForm();
     $('overlay').classList.remove('show');
     cargarPromos();
@@ -410,7 +473,7 @@
 
   function resetForm(){
     $('f-nombre').value=''; $('f-banco').value=''; $('f-via').value='';
-    $('f-cuotas').value=''; $('f-pct').value=''; $('f-tope').value='';
+    $('f-cuotas').value=''; $('f-minimo').value=''; $('f-pct').value=''; $('f-tope').value='';
     $('f-desde').value=''; $('f-hasta').value=''; $('f-cond').value='';
     $('f-estado').value='borrador'; $('f-todas').checked=false; $('f-ejes').classList.add('show');
     document.querySelectorAll('#f-tarjetas .chip.on, #f-marcas .chip.on, #f-regiones .chip.on').forEach(c=>c.classList.remove('on'));
@@ -420,7 +483,6 @@
     $('block-fin').classList.add('show'); $('block-rei').classList.remove('show');
   }
 
-  // ---------- Lista ----------
   async function cargarPromos(){
     const { data, error } = await db.from('promociones')
       .select('*, banco:bancos(nombre), promocion_tarjetas(tarjetas(nombre))')
@@ -430,7 +492,7 @@
   }
   function detalleTexto(p){
     if(p.tipo==='reintegro'){ let t=p.reintegro_pct+'% reintegro'; if(p.tope_monto) t+=' · tope $'+Number(p.tope_monto).toLocaleString('es-AR'); return t; }
-    if(p.tipo==='financiacion'){ return p.cuotas+' cuotas '+(p.interes==='sin_interes'?'sin interés':'con interés'); }
+    if(p.tipo==='financiacion'){ let t=p.cuotas+' cuotas '+(p.interes==='sin_interes'?'sin interés':'con interés'); if(p.minimo_compra) t+=' · mín $'+Number(p.minimo_compra).toLocaleString('es-AR'); return t; }
     return 'Financiación + reintegro';
   }
   function tarjetasTexto(p){ return (p.promocion_tarjetas||[]).map(x=>x.tarjetas?.nombre).filter(Boolean).join(' · '); }
@@ -444,6 +506,8 @@
     if(p.archivada){
       acciones = '<button class="mini" data-restaurar="'+p.id+'">Restaurar</button>';
     } else {
+      acciones += '<button class="mini" data-editar="'+p.id+'">Editar</button>';
+      acciones += '<button class="mini" data-duplicar="'+p.id+'">Duplicar</button>';
       if(alt) acciones += '<button class="mini" data-id="'+p.id+'" data-estado="'+p.estado+'">'+accionTxt+'</button>';
       acciones += '<button class="mini danger" data-eliminar="'+p.id+'">Eliminar</button>';
     }
@@ -462,7 +526,7 @@
     const q=$('buscar').value.toLowerCase().trim(), fe=$('filtro-estado').value;
     let items = TODAS.filter(p=>{
       if(fe==='archivada') return p.archivada===true && cumpleBusqueda(p,q);
-      if(p.archivada) return false;                       // ocultar archivadas de las vistas normales
+      if(p.archivada) return false;
       const estado = p.tipo_registro==='plantilla'?'plantilla':p.estado;
       if(fe && estado!==fe) return false;
       return cumpleBusqueda(p,q);
@@ -470,6 +534,8 @@
     if(!items.length){ $('lista').innerHTML='<div class="empty">No hay promociones para ese filtro.</div>'; return; }
     $('lista').innerHTML = items.map(promoHTML).join('');
     document.querySelectorAll('.mini[data-id]').forEach(b=> b.onclick=()=>alternarEstado(b.dataset.id,b.dataset.estado));
+    document.querySelectorAll('.mini[data-editar]').forEach(b=> b.onclick=()=>abrirEditar(b.dataset.editar));
+    document.querySelectorAll('.mini[data-duplicar]').forEach(b=> b.onclick=()=>abrirDuplicar(b.dataset.duplicar));
     document.querySelectorAll('.mini[data-eliminar]').forEach(b=> b.onclick=()=>archivar(b.dataset.eliminar, true));
     document.querySelectorAll('.mini[data-restaurar]').forEach(b=> b.onclick=()=>archivar(b.dataset.restaurar, false));
   }
@@ -493,10 +559,8 @@
   function itemsDe(tabla){ return tabla==='bancos'?BANCOS : tabla==='tarjetas'?TARJETAS : VIAS; }
   function slug(t){ return (t||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,'-'); }
   window.logoPhErr = img => { img.outerHTML = '<div class="cfg-logo ph">sin logo</div>'; };
-
   $('btn-config').onclick = () => { renderConfig(); $('overlay-cfg').classList.add('show'); };
   $('btn-cfg-cerrar').onclick = () => $('overlay-cfg').classList.remove('show');
-
   function renderConfig(){
     for(const tabla of Object.keys(CAT)){
       const cont = $(CAT[tabla]);
@@ -509,7 +573,6 @@
       }).join('') || '<div style="font-size:13px;color:var(--muted);padding:6px 0">Todavía no hay.</div>';
     }
   }
-
   document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => agregarItem(b.dataset.add));
   async function agregarItem(tabla){
     const map = {bancos:'add-banco', tarjetas:'add-tarjeta', vias:'add-via'};
